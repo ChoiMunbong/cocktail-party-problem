@@ -1,10 +1,7 @@
 import pandas as pd
 import re
 import os
-try:
-	from fastai.vision.all import untar_data, get_files
-except:
-	from fastai2.vision.all import untar_data, get_files
+from fastai.vision.all import untar_data, get_files
 import matplotlib.pyplot as plt
 import numpy as np
 import librosa
@@ -21,9 +18,9 @@ class LoadMacaqueData(object):
 		self.sr = sr
 		
 	def construct_dataframe(self):
-		path = untar_data(self.url)
-		wav_files = sorted(get_files(path))
-
+		path = untar_data(self.url) # 압축해제
+		wav_files = sorted(get_files(path)) #정렬
+		
 		wfs = []
 		labels = []
 		wavs = []
@@ -32,7 +29,7 @@ class LoadMacaqueData(object):
 			pattern = r'\\'
 		else:
 			pattern ='/'
-
+		
 		for wav in wav_files:
 			call_code = re.split(pattern, str(wav))[-2]
 			wf, _ = sf.read(wav)
@@ -217,7 +214,6 @@ class LoadBatData(object):
 		file_names = []
 		for r, d, f in os.walk(self.base_path):
 			for item in f:
-				print
 				if '.WAV' in item:
 					wavs.append(os.path.join(r, item))
 					fn = re.split(self.pattern, item)[-1]
@@ -389,3 +385,110 @@ class LoadElephantData(object):
 					X.append(x)
 					Y.append(i)
 		return X, Y
+
+class LoadBirdData(object): #라벨링해서 넣을
+	def __init__(self, os='Ubuntu', sr=22050, frames=22050):
+		self.os = os
+		if os=='Windows':
+			self.pattern = r'\\'
+		else:
+			self.pattern = r'/'
+		self.sr = sr
+		self.frames = frames
+		self.base_path = f'BioacousticData{self.pattern}Bird{self.pattern}'
+
+	def construct_dataframe(self):
+		wav_files = sorted(get_files(self.base_path)) #디렉토리 내 존재하는 모든 파일들 불러오기 및 정렬
+
+		wfs = []
+		labels = []
+		wavs = []
+
+		if self.os == 'Windows':
+			pattern = r'\\'
+		else:
+			pattern ='/'
+
+		for wav in wav_files:
+			call_code = re.split(pattern, str(wav))[-2]
+			wf, _ = sf.read(wav)
+
+			wfs.append(wf)
+			labels.append(call_code)
+			wavs.append(wav)
+
+		call_dict = {l: i for i, l in enumerate(np.unique(labels))}
+		call_category = [call_dict[i] for i in labels]
+		data_df = pd.DataFrame({'Waveform':wfs, 'Path': wavs, 'Label': labels, 'Category': call_category})
+		
+		return data_df
+
+	def fixed_dataframe(self):
+		dataframe = self.construct_dataframe()
+		
+		mean_dur = self.get_mean_duration(dataframe)
+		std_dur = self.get_std_duration(dataframe)
+		paths = dataframe.Path.values
+		labels = dataframe.Label.values
+		categories = dataframe.Category.values
+		waveforms = dataframe.Waveform.values
+
+		xs = []
+		for wf in waveforms:
+			x = librosa.util.fix_length(wf, mean_dur + 3*std_dur)
+			xs.append(x)
+		fixed_df = pd.DataFrame({'Waveform':xs, 'Path': paths, 'Label':labels, 'Category':categories})    
+		return fixed_df
+	
+	def balanced_dataframe(self):
+	
+		dataframe = self.fixed_dataframe()
+		balanced_df = dataframe.groupby('Category')
+		balanced_df = balanced_df.apply(lambda x: x.sample(balanced_df.size().min(),
+														   random_state=self.state).reset_index(drop=True))
+
+		return balanced_df
+	
+	def visualize_classes(self, dataframe, group='Label'):
+		df = dataframe.groupby(group).apply(lambda x: x.sample(1, random_state=self.state))
+		df = df.reset_index(drop=True)
+
+		fig, axes = plt.subplots(2,4, figsize=(15,10))
+		for i, ax in enumerate(axes.flatten()):
+			ax.plot(df.Waveform.iloc[i], linewidth=0.4)
+			ax.set_title(df.Label.iloc[i])
+		plt.show()
+
+	def run(self, balance=False):
+		if balance:
+			data_df = self.balanced_dataframe()
+		else:
+			data_df = self.fixed_dataframe()
+		mean_dur = self.get_mean_duration(data_df)
+		std_dur = self.get_std_duration(data_df)
+
+		win_width = mean_dur + 3*std_dur
+
+		X = []
+		for i, wf in enumerate(data_df.Waveform.values):
+			X.append(wf.astype('float32'))
+		Y = data_df.Category.values.astype('int64').tolist()
+		return X, Y
+	
+	@staticmethod
+	def get_mean_duration(dataframe):
+		waveforms = dataframe.Waveform.values
+		durs = []
+		for wf in waveforms:
+			durs.append(wf.shape[0])
+		mean_dur = int(np.mean(durs))
+		return mean_dur
+
+	@staticmethod
+	def get_std_duration(dataframe):
+		waveforms = dataframe.Waveform.values
+		durs = []
+		for wf in waveforms:
+			durs.append(wf.shape[0])
+		std_dur = int(np.std(durs))
+		return std_dur

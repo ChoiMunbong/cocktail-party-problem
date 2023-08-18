@@ -14,22 +14,23 @@ class SourceMixer(object):
 	def mix(self, x, y, shift_factor=None, shift_overlaps=False, **kwargs):
 		random.seed(self.seed)
 		np.random.seed(self.seed)
-
-		ids, counts = np.unique(y, return_counts=True)
-		ids, counts = ids.tolist(), counts.tolist()
+  
+		ids, counts = np.unique(y, return_counts=True) # 각각의 데이터에 대해 label이 몇인지 / 몇개가 있는지 (index를 key(label)로봄)
+		ids, counts = ids.tolist(), counts.tolist() #list로 변경
 
 		x_mix = []
 		y_mix = []
 		y_mix_id = []
 		
-		xy_dict = {i: [x_i for (x_i,y_i) in zip(x, y) if y_i==i] for i in ids}
+		xy_dict = {i: [x_i for (x_i,y_i) in zip(x, y) if y_i==i] for i in ids} #클래스에 대해서 i = key(label) 나머지 value(list) 
 
 		for n in tqdm.tqdm(range(self.samples)):
-			id_idxs = random.sample(ids, self.n_src)
+			id_idxs = random.sample(ids, self.n_src) #입력 데이터 랜덤 추출
+			# id_idxs = ids
 			signal_idxs = [np.random.randint(low=0, 
-											 high=counts[ids.index(id_idx)]) for id_idx in id_idxs]
+											 high=counts[ids.index(id_idx)]) for id_idx in id_idxs] #각 id_idx에 대해서, 그 id_idx에 해당하는 클래스의 count 수 내에서 랜덤한 정수를 선택합니다. 이것은 랜덤하게 선택한 클래스에서 랜덤하게 데이터를 선택하기 위한 인덱스입니다.
 
-			signals = [xy_dict[id_idx][signal_idx] for (id_idx, signal_idx) in zip(id_idxs, signal_idxs)]
+			signals = [xy_dict[id_idx][signal_idx] for (id_idx, signal_idx) in zip(id_idxs, signal_idxs)] #위에서 선택한 id_idx와 signal_idx를 이용해 각 클래스에서 데이터를 선택합니다.
 
 			if shift_factor is not None:
 				signals = [self.signal_shifter(signal,
@@ -42,8 +43,8 @@ class SourceMixer(object):
 
 				signals = self.overlap_shifter(signals)
 
-			signals = [torch.Tensor(s) for s in signals]
-			x_mix.append(sum(signals).view(1, -1))
+			signals = [torch.Tensor(s) for s in signals] 
+			x_mix.append(sum(signals).view(1, -1)) # 두 signal 결합
 			y_mix.append(torch.stack(signals, dim=0))
 			y_mix_id.append(torch.LongTensor(id_idxs))
 

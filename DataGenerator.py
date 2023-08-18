@@ -41,7 +41,10 @@ def generate_labeled_waveforms(animal, *args, **kwargs):
 		X, Y = loader.run(balance=kwargs['balance'])
 	elif animal == 'SpermWhale':
 		loader = LoadSpermWhaleData(os=kwargs['os'])
-		X, Y = loader.run(balance=kwargs['balance'])        
+		X, Y = loader.run(balance=kwargs['balance'])  
+	elif animal == 'Bird' :
+		loader = LoadBirdData(os=kwargs['os'])
+		X, Y = loader.run(balance=kwargs['balance'])
 	return X, Y
 
 def open_closed_split(X, Y, n_open=None, seed=42):
@@ -160,7 +163,7 @@ if __name__ == '__main__':
 	args = parser.parse_args()
 	
 	animal = args.animal
-	assert animal in ['Macaque', 'Dolphin', 'Bat', 'SpermWhale']
+	assert animal in ['Macaque', 'Dolphin', 'Bat', 'SpermWhale', 'Bird']
 	if not os.path.isdir(animal):
 		os.mkdir(animal)
 
@@ -310,7 +313,6 @@ if __name__ == '__main__':
 				del Y_test_id
 
 			else:
-                
 				task_directory = f'SeparatorClosed/'
 
 				task_root = root + task_directory
