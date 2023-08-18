@@ -11,7 +11,7 @@ if __name__ == '__main__':
 	args = parser.parse_args()
 
 	root = args.animal
-	assert root in ['Macaque', 'Dolphin', 'Bat']
+	assert root in ['Macaque', 'Dolphin', 'Bat', 'Bird']
 	if not os.path.isdir(root):
 		os.mkdir(root)
 
@@ -431,5 +431,141 @@ if __name__ == '__main__':
 			},
 			"eval_return_data":False
 		}
+  
+	elif args.animal == 'Bird' :
+
+		config = {
+			"data_preprocessing": {
+				"general": {
+					"n_src":2,
+					"balance":False,
+					"n_individuals":None,
+					"n_open":None, #고정(class 11기준 : 3)
+					"zipfile_save":False
+				},
+				"classifier": {
+					"augmentation_factor":2, #increase 1 to 8
+					"shift_factor":0.6, #increase 60 to 75
+					"padding_scheme":"zero",
+					"padding_side":"front"
+				},
+				"separator": {
+					"mixing_to_memory": {
+						"n_src":2,
+						"training_size":18000,
+						"validation_size":4000,
+						"shift_factor":0.1,
+						"shift_overlaps":True,
+						"padding_scheme":"zero",
+						"padding_side":"front"
+					}
+				}    
+			},
+			"classifier_dataset_params": {
+				"n_src": 2,
+				"objective": "classification",
+				"stft_params": None,
+				"filter_params": None,
+				"shuffle": True
+			},
+			"classifier_learning_params": {
+				"batch_size": 32,
+				"learning_rate": 0.0001,
+				"epochs": 100
+			},
+			"classifier_model_params": {
+				"in_size": [
+					None,
+					1,
+					22050
+				],
+				"n_classes": 7, #클래스 수
+				"n_blocks": 4, #레이어 수
+ 				"pool_size": 2, # 고정
+				"input_mode": "raw",
+				"stft_params": {
+					"kernel_size": 1024, #커널사이즈
+					"stride": 64 #hop size # raise
+				},
+				"lin_dim":128,
+				"dropout":0.25
+			},
+			"classifier_trainer_params": {
+				"loss_func": {
+					"nll_loss": "nll_weighted"
+				},
+				"metric_func": {
+					"accuracy": "classifier_acc"
+				},
+				"verbose": 1,
+				"device": "cuda",
+				"dest": "Classifier",
+
+				"model_saver_callback": {
+						"epoch": 30,
+						"save_every": 1
+				}
+			},
+			"separator_dataset_params": {
+				"n_src": 2,
+				"objective": "separation",
+				"stft_params": None,
+				"filter_params": None
+			},
+			"separator_learning_params": {
+				"batch_size": 16,
+				"learning_rate": 0.0001,
+				"epochs": 100,
+				"optimizer": "adamw",
+				"momentum": 0.9
+			},
+			"separator_model_params": {
+				"in_size": [
+					None,
+					1,
+					22050
+				],
+				"n_src": 2,
+				"n_blocks": 4,
+				"pool_size":2,
+				"batch_norm": True,
+				"filterbank_params": {
+					"nfft": 1024,
+					"hop": 64
+				},
+				"input_mode": "stft",
+				"output_mode": "istft",
+				"phase_channel": False
+			},
+			"separator_trainer_params": {
+				"loss_func": {
+					"pit_multi_loss": "pit_total"
+				},
+				"metric_func": {
+					"si_sdr": "pit_sisdr"
+				},
+				"verbose": 1,
+				"device": "cuda",
+				"dest": "Separator",
+				"params": {
+					"accuracy_metric": "pit_separator_acc",
+					"probnorm_acc_metric": "pit_probnorm_acc",
+					"optimizer_switcher_callback": {
+						"optimizer": "adamw_amsgrad",
+						"learning_rate": 0.0003,
+						"epoch": 3
+					},
+					"model_saver_callback": {
+						"epoch": 30,
+						"save_every": 1
+					},
+     				"L2_regularizer_callback": {
+                		"lambda": 1e-06
+		            }
+				}
+			},
+			"eval_return_data":True
+		}
+  
 	with open(root+file_name, 'w') as fp:
 		json.dump(config, fp, indent=4)

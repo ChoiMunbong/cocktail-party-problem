@@ -92,7 +92,6 @@ class iSTFT(nn.Module):
 		S_real = torch.mul(D, torch.cos(P)).unsqueeze(dim=-1)
 		S_imag = torch.mul(D, torch.sin(P)).unsqueeze(dim=-1)
 		S = torch.cat([S_real, S_imag], dim=-1)
-
 		x = torch.istft(S, n_fft=self.kernel_size, hop_length=self.stride, window=self.window).unsqueeze(dim=1)
 		return x
 

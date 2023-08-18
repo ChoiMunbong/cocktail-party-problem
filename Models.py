@@ -80,6 +80,7 @@ class Classifier(nn.Module):
 		self.lin1 = nn.Linear(self.lin_size, lin_dim)
 		self.lin2 = nn.Linear(lin_dim, n_classes)
 		self.drop = nn.Dropout(dropout)
+	
 	def forward(self, x):
 		x = self.filter(x)
 		if 'raw' in self.input_mode:
@@ -89,7 +90,9 @@ class Classifier(nn.Module):
 			x = self.transform(x)
 		for b in self.blocks:
 			x = b(x)
-		x = x.view(-1, self.lin_size)
+		# print(x.shape) # batch size, filters, out size[0] and 13???
+		#shape lin_size = filters * out size shape[0] * shape[1]
+		x = x.view(-1,self.lin_size)
 		x = F.leaky_relu(self.lin1(x))
 		x = self.drop(x)
 		x = self.lin2(x)
@@ -116,6 +119,7 @@ class Classifier(nn.Module):
 	def get_lin_size(shape, blocks, pool, filters):
 		for j in range(blocks):
 			shape = [np.floor(s / pool) for s in shape]
+		print(f"filters : {filters}, {shape[0]}, {shape[1]}")
 		result = filters * shape[0] * shape[1]
 		return int(result)
 
@@ -192,7 +196,7 @@ class UNet2D(nn.Module):
 			xups.append(self.ups[i](concat))
 		x = self.conv_last(xups[-1])
 		x = self.cropping2d(x)
-		x = self.splitchannels(x)
+		x = self.splitchannels(x) # masking
 		return x
 		
 	@staticmethod
@@ -320,7 +324,8 @@ class RepUNet(nn.Module):
 		else:
 			phase = [phase for _ in range(self.n_src)]
 		
-		x = self.unet2d(filterbank)
+  
+		x = self.unet2d(filterbank) #out masking
 		
 		if self.output_mode == 'conv1d':
 			x = [torch.mul(x_i, filterbank).squeeze(dim=1) for x_i in x]
@@ -333,11 +338,13 @@ class RepUNet(nn.Module):
 			x = [self.istft(p_i, x_i) for p_i, x_i in zip(phase, x)]
 			x = [self.padding1d(x_i) for x_i in x]
 			x = torch.cat(x, dim=1)
+   
 		elif re.search('mcnn_\d+', self.output_mode):
 			x = [torch.mul(x_i, filterbank).squeeze(dim=1) for x_i in x]
 			x = [mcnn_i(x_i) for x_i, mcnn_i in zip(x, self.mcnns)]
 			x = [self.padding1d(x_i) for x_i in x]
 			x = torch.cat(x, dim=1)
+   
 		elif self.output_mode == 'spec':
 			x = [torch.mul(F.relu(x_i), filterbank) for x_i in x]
 			x = torch.cat(x, dim=1)

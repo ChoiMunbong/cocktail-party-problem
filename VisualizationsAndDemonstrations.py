@@ -188,7 +188,7 @@ def plot_separations(X, Y, index, model, sr, domain='time-domain', dest=None, pl
 	display(widgets.VBox([buttons, out]))
     
 def audio_visual(animal, n_src, rep, playback_factor=1, directory='Assets'):
-	assert animal in ['Macaque', 'Dolphin', 'Bat'], print('Animal must be Macaque, Dolphin, or Bat')
+	assert animal in ['Macaque', 'Dolphin', 'Bat', 'Bird'], print('Animal must be Macaque, Dolphin, or Bat')
 	assert rep in ['WF', 'TFR'], print('Rep must be WF or TFR')
 
 	mixture_wav = sorted(glob.glob(f'{directory}/{animal}/{n_src}SpeakerMixture.wav'))
